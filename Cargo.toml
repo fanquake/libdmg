@@ -1,0 +1,7 @@
+[package]
+name = "libdmg_rust"
+version = "0.1.0"
+authors = ["fanquake <fanquake@gmail.com>"]
+edition = "2018"
+
+[dependencies]
