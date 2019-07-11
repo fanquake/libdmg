@@ -14,3 +14,35 @@ The `DMG` format is proprietary and not well documented. As a result it has been
 * http://newosxbook.com/DMG.html
 * [hdiutil](https://ss64.com/osx/hdiutil.html)
 * [Deterministic macOS DMG Notes](https://github.com/bitcoin/bitcoin/blob/master/doc/build-osx.md#deterministic-macos-dmg-notes)
+
+## Usage
+
+```bash
+mkdir my_dmg
+echo "Hello World" > my_dmg/hello.txt
+
+# create a basic dmg containing hello.txt
+hdiutil create -ov -volname "Test DMG" -srcfolder my_dmg my.dmg
+> created: ..../my.dmg
+
+# open DMG and inspect contents
+hdiutil attach my.dmg
+
+# Build binary
+carog build
+
+# Inspect with libdmg_rust
+cargo run inspect my.dmg
+...
+Inspecting: "my.dmg"
+
+udif: KolyBlock {
+    magic: 1802464377,
+    version: 4,
+    header_size: 512,
+    flags: 1,
+    running_data_fork_offset: 0,
+    data_fork_offset: 0,
+    data_fork_length: 8162,
+    ....
+```
