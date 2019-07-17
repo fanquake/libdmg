@@ -1,15 +1,5 @@
 use super::util;
 
-#[derive(Debug)]
-pub struct UDIFChecksum {
-    /// data fork
-    pub fork_type: u32,
-    /// checksum information
-    pub size: u32,
-    /// up to 128-bytes ( 32 * 4 ) of checksum
-    pub data: Vec<u8>,
-}
-
 const KOLY_MAGIC: &str = "0x6B6F6C79";
 
 #[derive(Debug)]
@@ -41,7 +31,7 @@ pub struct KolyBlock {
     pub segment_id: u128,
 
     /// 
-    pub data_fork_checksum: UDIFChecksum,
+    pub data_fork_checksum: util::UDIFChecksum,
 
     /// start of the .plist data
     pub xml_offset: u64,
@@ -51,7 +41,7 @@ pub struct KolyBlock {
     /// 120 reserved bytes, zeroed
     pub reserved_one: Vec<u8>, //LargeArray,
 
-    pub master_checksum: UDIFChecksum,
+    pub master_checksum: util::UDIFChecksum,
 
     /// commonly 1, we're using 2
     pub image_variant: u32,
@@ -90,7 +80,7 @@ impl KolyBlock {
 
             segment_id: util::read_be_u128(&mut &buffer[64..80]),
 
-            data_fork_checksum: UDIFChecksum {
+            data_fork_checksum: util::UDIFChecksum {
                 fork_type: util::read_be_u32(&mut &buffer[80..84]),
                 size: util::read_be_u32(&mut &buffer[84..88]),
                 data: util::from_buffer(&buffer[88..216]),
@@ -101,7 +91,7 @@ impl KolyBlock {
 
             reserved_one: vec![0u8; 120],
 
-            master_checksum: UDIFChecksum {
+            master_checksum: util::UDIFChecksum {
                 fork_type: util::read_be_u32(&mut &buffer[352..356]),
                 size: util::read_be_u32(&mut &buffer[356..360]),
                 data: util::from_buffer(&buffer[360..488]),

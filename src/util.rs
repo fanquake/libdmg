@@ -1,5 +1,15 @@
 use std::convert::TryInto;
 
+#[derive(Debug)]
+pub struct UDIFChecksum {
+    /// data fork
+    pub fork_type: u32,
+    /// checksum information
+    pub size: u32,
+    /// up to 128-bytes ( 32 * 4 ) of checksum
+    pub data: Vec<u8>,
+}
+
 pub fn from_buffer(buffer: &[u8]) -> Vec<u8> {
     let mut v = vec![0; 128];
     v.copy_from_slice(buffer);
