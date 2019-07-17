@@ -7,6 +7,8 @@ mod koly;
 
 use koly::*;
 
+mod util;
+
 #[derive(StructOpt, Debug)]
 #[structopt(name = "libdmg_rust", about = "DMG inspection and creation")]
 enum Cli {
