@@ -1,5 +1,5 @@
-use base64::{decode};
 use super::util;
+use base64::decode;
 use xmltree;
 
 #[derive(Debug)]
@@ -7,14 +7,12 @@ pub struct PartitionEntry {
     attributes: String, // turn this into hex or some int?
     cf_name: String,
     data: MishBlock, // base64 encoded string, decode into mish block
-    id: i32, // this can be -1...n
-    name: String, // always seems to be the same as cf_name
+    id: i32,         // this can be -1...n
+    name: String,    // always seems to be the same as cf_name
 }
 
 impl PartitionEntry {
-
     pub fn new(element: xmltree::Element) -> Result<PartitionEntry, &'static str> {
-
         let children = &element.children;
 
         // TODO: extract strings and turn static?
@@ -22,7 +20,9 @@ impl PartitionEntry {
         let cf_name = PartitionEntry::find_index_for(String::from("CFName"), &children)?;
         let data = PartitionEntry::find_index_for(String::from("Data"), &children)?;
         // TODO: yuck?
-        let id: i32 = PartitionEntry::find_index_for(String::from("ID"), &children)?.parse().unwrap();
+        let id: i32 = PartitionEntry::find_index_for(String::from("ID"), &children)?
+            .parse()
+            .unwrap();
         let name = PartitionEntry::find_index_for(String::from("Name"), &children)?;
 
         Ok(PartitionEntry {
@@ -35,9 +35,11 @@ impl PartitionEntry {
     }
 
     fn find_index_for(key: String, elements: &[xmltree::Element]) -> Result<String, &'static str> {
+        let key_index = elements
+            .iter()
+            .position(|x| x.text.clone() == Some(key.clone()))
+            .unwrap();
 
-        let key_index = elements.iter().position(|x| x.text.clone() == Some(key.clone())).unwrap();
-        
         // This assumes that the XML elements are always ordered correctly
         let value = &elements[key_index + 1];
 
@@ -100,22 +102,17 @@ pub struct MishBlock {
 }
 
 impl MishBlock {
-
     pub fn new_from_base_64(encoded: String) -> Result<MishBlock, &'static str> {
-
         // trim leading and trailing whitespace, remove all tabs and newlines
         let stripped = encoded.trim().replace("\t", "").replace("\n", "");
-        //println!("base64: {}", stripped);
 
         let decoded = decode(&stripped).expect("Could not decode base64 data");
-        //println!("decoded: {:?}", decoded);
 
         MishBlock::new(decoded)
     }
 
     pub fn new(buffer: Vec<u8>) -> Result<MishBlock, &'static str> {
-
-        let magic = util::read_be_u32(&mut & buffer[0..4]);
+        let magic = util::read_be_u32(&mut &buffer[0..4]);
         assert_eq!(format!("{:#X}", magic), MISH_MAGIC);
 
         // work out the number of block chunks now, as we'll reuse it
@@ -146,13 +143,13 @@ impl MishBlock {
 
             number_block_chunks,
             block_entries: MishBlock::build_block_entries(
-                buffer[204..].to_vec(), 
-                number_block_chunks as usize),
+                buffer[204..].to_vec(),
+                number_block_chunks as usize,
+            ),
         })
     }
 
     fn build_block_entries(buffer: Vec<u8>, count: usize) -> Vec<BlkxChunkEntry> {
-        
         let mut entries: Vec<BlkxChunkEntry> = Vec::with_capacity(count);
 
         let mut chunks = buffer.chunks_exact(BLKX_CHUNK_ENTRY_SIZE);
@@ -167,7 +164,6 @@ impl MishBlock {
     }
 }
 
-
 // Can just list partitions for now
 // Needs Error handling
 #[derive(Debug)]
@@ -175,40 +171,37 @@ pub struct PList {
     partitions: Vec<PartitionEntry>,
 }
 
-// Parse the XML plist data 
+// Parse the XML plist data
 // Needs proper Error type
 pub fn parse_plist(data: Vec<u8>) -> Result<PList, xmltree::ParseError> {
-
     let string = String::from_utf8(data).unwrap();
-    //println!("xml: {}", string);
 
     let xml = xmltree::Element::parse(string.as_bytes())?;
 
-    //println!("{:#?}", xml.children);
-
     let outer_dict = xml.get_child("dict").unwrap();
-    //println!("children: {:#?}", outer_dict);
 
     // check for the resource-fork key
-    let resource_fork = outer_dict.get_child("key").expect("Could not find resource-fork");
-    let text = resource_fork.text.clone().expect("Malformed resource-fork text");
+    let resource_fork = outer_dict
+        .get_child("key")
+        .expect("Could not find resource-fork");
+    let text = resource_fork
+        .text
+        .clone()
+        .expect("Malformed resource-fork text");
     assert_eq!(text, "resource-fork");
 
     // get the array that contains the blk data entries
-    let blk_array = outer_dict.get_child("dict").unwrap()
-                        .get_child("array").expect("Could not find blk data array");
-
-    //println!("blk array {:#?}", blk_array);
+    let blk_array = outer_dict
+        .get_child("dict")
+        .unwrap()
+        .get_child("array")
+        .expect("Could not find blk data array");
 
     let partitions: Vec<PartitionEntry> = blk_array
-    .children
-    .iter()
-    .map(|child| PartitionEntry::new(child.clone()).unwrap())
-    .collect();
+        .children
+        .iter()
+        .map(|child| PartitionEntry::new(child.clone()).unwrap())
+        .collect();
 
-    //println!("Found partitions: {:#?}", partitions);
-
-    Ok(PList {
-        partitions,
-    })
+    Ok(PList { partitions })
 }
