@@ -3,9 +3,14 @@ use std::io;
 use std::io::{prelude::{Read, Seek}, SeekFrom};
 use structopt::StructOpt;
 
-mod koly;
+extern crate base64;
+extern crate xmltree;
 
+mod koly;
 use koly::*;
+
+mod xml;
+use xml::*;
 
 mod util;
 
@@ -48,7 +53,12 @@ fn inspect(file: &std::path::PathBuf) -> Result<(), io::Error> {
 
     // Once we've parsed the koly block, we can grab the xml length and offset
     // and use that to extract and parse the plist xml.
-    //f.seek(SeekFrom::Start(udif_res.xml_offset))?;
+    f.seek(SeekFrom::Start(udif_res.xml_offset))?;
+
+    let mut plist = vec![0u8; udif_res.xml_length as usize];
+    f.read_exact(&mut plist)?;
+
+    let _parsed = parse_plist(plist).expect("Could not parse XML plist!");
 
     Ok(())
 }
