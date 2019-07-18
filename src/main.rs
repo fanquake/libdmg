@@ -49,7 +49,7 @@ fn inspect(file: &std::path::PathBuf) -> Result<(), io::Error> {
     f.read_to_end(&mut koly_block)?;
 
     let udif_res = KolyBlock::new(koly_block).expect("Could not read koly block!");
-    println!("udif: {:#?}", udif_res);
+    //println!("udif: {:#?}", udif_res);
 
     // Once we've parsed the koly block, we can grab the xml length and offset
     // and use that to extract and parse the plist xml.
@@ -58,7 +58,9 @@ fn inspect(file: &std::path::PathBuf) -> Result<(), io::Error> {
     let mut plist = vec![0u8; udif_res.xml_length as usize];
     f.read_exact(&mut plist)?;
 
-    let _parsed = parse_plist(plist).expect("Could not parse XML plist!");
+    let parsed = parse_plist(plist).expect("Could not parse XML plist!");
+
+    println!("plist: {:#?}", parsed);
 
     Ok(())
 }

@@ -170,8 +170,9 @@ impl MishBlock {
 
 // Can just list partitions for now
 // Needs Error handling
+#[derive(Debug)]
 pub struct PList {
-
+    partitions: Vec<PartitionEntry>,
 }
 
 // Parse the XML plist data 
@@ -199,16 +200,15 @@ pub fn parse_plist(data: Vec<u8>) -> Result<PList, xmltree::ParseError> {
 
     //println!("blk array {:#?}", blk_array);
 
-    // iterate over the parition entries
-    // TODO: rewrite into some map
-    for child in blk_array.children.iter() {
-        println!("___________________________");
-        //println!("{:#?}", child.get_child("string").unwrap().text);
-        //println!("count: {}", child.children.len());
+    let partitions: Vec<PartitionEntry> = blk_array
+    .children
+    .iter()
+    .map(|child| PartitionEntry::new(child.clone()).unwrap())
+    .collect();
 
-        let part = PartitionEntry::new(child.clone());
-        println!("partition: {:#?}", part);
-    }
+    //println!("Found partitions: {:#?}", partitions);
 
-    Ok(PList{})
+    Ok(PList {
+        partitions,
+    })
 }
