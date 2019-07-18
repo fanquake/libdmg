@@ -1,5 +1,7 @@
 # libdmg_rust
 
+[![Build Status](https://travis-ci.org/fanquake/libdmg_rust.svg?branch=master)](https://travis-ci.org/fanquake/libdmg_rust)
+
 This is a port of some of the functionality of [planetbeing/libdmg-hfsplus](https://github.com/planetbeing/libdmg-hfsplus).
 
 The goal is to replace the usage of [`genisoimage`](https://manpages.debian.org/stretch/genisoimage/genisoimage.1.en.html) and `libdmg-hfsplus` in the Bitcoin Core [gitian build process](https://github.com/bitcoin/bitcoin/blob/master/contrib/gitian-descriptors/gitian-osx.yml#L141). 
