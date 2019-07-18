@@ -14,6 +14,7 @@ The `DMG` format is proprietary and not well documented. As a result it has been
 * http://newosxbook.com/DMG.html
 * [hdiutil](https://ss64.com/osx/hdiutil.html)
 * [Deterministic macOS DMG Notes](https://github.com/bitcoin/bitcoin/blob/master/doc/build-osx.md#deterministic-macos-dmg-notes)
+* [Secrets of the GPT](https://developer.apple.com/library/archive/technotes/tn2166/_index.html)
 
 ## Usage
 
