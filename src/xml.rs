@@ -63,7 +63,7 @@ pub struct BlkxChunkEntry {
 }
 
 impl BlkxChunkEntry {
-    pub fn new(buffer: Vec<u8>) -> Result<BlkxChunkEntry, &'static str> {
+    pub fn new(buffer: &[u8]) -> Result<BlkxChunkEntry, &'static str> {
         Ok(BlkxChunkEntry {
             entry_type: util::read_be_u32(&mut &buffer[0..4]),
             comment: util::read_be_u32(&mut &buffer[4..8]),
@@ -115,9 +115,6 @@ impl MishBlock {
         let magic = util::read_be_u32(&mut &buffer[0..4]);
         assert_eq!(format!("{:#X}", magic), MISH_MAGIC);
 
-        // work out the number of block chunks now, as we'll reuse it
-        let number_block_chunks: u32 = util::read_be_u32(&mut &buffer[200..204]);
-
         Ok(MishBlock {
             signature: util::read_be_u32(&mut &buffer[0..4]),
             version: util::read_be_u32(&mut &buffer[4..8]),
@@ -141,26 +138,17 @@ impl MishBlock {
                 data: buffer[72..200].to_vec(),
             },
 
-            number_block_chunks,
-            block_entries: MishBlock::build_block_entries(
-                buffer[204..].to_vec(),
-                number_block_chunks as usize,
-            ),
+            number_block_chunks: util::read_be_u32(&mut &buffer[200..204]),
+            block_entries: MishBlock::build_block_entries(&buffer[204..]),
         })
     }
 
-    fn build_block_entries(buffer: Vec<u8>, count: usize) -> Vec<BlkxChunkEntry> {
-        let mut entries: Vec<BlkxChunkEntry> = Vec::with_capacity(count);
-
-        let mut chunks = buffer.chunks_exact(BLKX_CHUNK_ENTRY_SIZE);
-
-        while entries.len() < count {
-            let c = chunks.next().unwrap().to_vec();
-            let entry = BlkxChunkEntry::new(c).unwrap();
-            entries.push(entry);
-        }
-
-        entries
+    // TODO: Return a Result<BlkxChunkEntry, Error> here
+    fn build_block_entries(buffer: &[u8]) -> Vec<BlkxChunkEntry> {
+        buffer
+            .chunks_exact(BLKX_CHUNK_ENTRY_SIZE)
+            .map(|c| BlkxChunkEntry::new(c).unwrap())
+            .collect()
     }
 }
 
