@@ -91,7 +91,7 @@ impl KolyBlock {
             data_fork_checksum: util::UDIFChecksum {
                 fork_type: util::read_be_u32(&mut &buffer[80..84]),
                 size: util::read_be_u32(&mut &buffer[84..88]),
-                data: util::from_buffer(&buffer[88..216]),
+                data: buffer[88..216].to_vec(),
             },
 
             xml_offset: util::read_be_u64(&mut &buffer[216..224]),
@@ -102,7 +102,7 @@ impl KolyBlock {
             master_checksum: util::UDIFChecksum {
                 fork_type: util::read_be_u32(&mut &buffer[352..356]),
                 size: util::read_be_u32(&mut &buffer[356..360]),
-                data: util::from_buffer(&buffer[360..488]),
+                data: buffer[360..488].to_vec(),
             },
 
             image_variant: util::read_be_u32(&mut &buffer[488..492]),

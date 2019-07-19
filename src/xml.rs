@@ -138,7 +138,7 @@ impl MishBlock {
             checksum: util::UDIFChecksum {
                 fork_type: util::read_be_u32(&mut &buffer[64..68]),
                 size: util::read_be_u32(&mut &buffer[68..72]),
-                data: util::from_buffer(&buffer[72..200]),
+                data: buffer[72..200].to_vec(),
             },
 
             number_block_chunks,

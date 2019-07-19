@@ -10,12 +10,6 @@ pub struct UDIFChecksum {
     pub data: Vec<u8>,
 }
 
-pub fn from_buffer(buffer: &[u8]) -> Vec<u8> {
-    let mut v = vec![0; 128];
-    v.copy_from_slice(buffer);
-    v
-}
-
 pub fn read_be_u32(input: &mut &[u8]) -> u32 {
     let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
     *input = rest;
