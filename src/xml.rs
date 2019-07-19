@@ -57,7 +57,7 @@ pub struct PartitionEntry {
 }
 
 impl PartitionEntry {
-    pub fn new(element: xmltree::Element) -> Result<PartitionEntry, XMLError> {
+    pub fn new(element: &xmltree::Element) -> Result<PartitionEntry, XMLError> {
         let children = &element.children;
 
         // TODO: extract strings and turn static?
@@ -82,7 +82,7 @@ impl PartitionEntry {
     fn find_index_for(key: String, elements: &[xmltree::Element]) -> Result<String, XMLError> {
         let key_index = elements
             .iter()
-            .position(|x| x.text.clone() == Some(key.clone()))
+            .position(|x| x.text == Some(key.clone()))
             .unwrap();
 
         // This assumes that the XML elements are always ordered correctly
@@ -236,7 +236,7 @@ pub fn parse_plist(data: Vec<u8>) -> Result<PList, XMLError> {
     let partitions: Result<Vec<PartitionEntry>, XMLError> = blk_array
         .children
         .iter()
-        .map(|child| PartitionEntry::new(child.clone()))
+        .map(|child| PartitionEntry::new(child))
         .collect();
 
     match partitions {
