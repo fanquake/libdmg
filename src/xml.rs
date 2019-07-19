@@ -63,15 +63,15 @@ pub struct BlkxChunkEntry {
 }
 
 impl BlkxChunkEntry {
-    pub fn new(buffer: &[u8]) -> Result<BlkxChunkEntry, &'static str> {
-        Ok(BlkxChunkEntry {
+    pub fn new(buffer: &[u8]) -> BlkxChunkEntry {
+        BlkxChunkEntry {
             entry_type: util::read_be_u32(&mut &buffer[0..4]),
             comment: util::read_be_u32(&mut &buffer[4..8]),
             sector_number: util::read_be_u64(&mut &buffer[8..16]),
             sector_count: util::read_be_u64(&mut &buffer[16..24]),
             compressed_offset: util::read_be_u64(&mut &buffer[24..32]),
             compressed_length: util::read_be_u64(&mut &buffer[32..40]),
-        })
+        }
     }
 }
 
@@ -143,11 +143,10 @@ impl MishBlock {
         })
     }
 
-    // TODO: Return a Result<BlkxChunkEntry, Error> here
     fn build_block_entries(buffer: &[u8]) -> Vec<BlkxChunkEntry> {
         buffer
             .chunks_exact(BLKX_CHUNK_ENTRY_SIZE)
-            .map(|c| BlkxChunkEntry::new(c).unwrap())
+            .map(|c| BlkxChunkEntry::new(c))
             .collect()
     }
 }
