@@ -9,7 +9,7 @@ extern crate xmltree;
 pub mod koly;
 use koly::*;
 
-mod xml;
+pub mod xml;
 use xml::*;
 
 pub mod util;
@@ -58,7 +58,7 @@ fn inspect(file: &std::path::PathBuf) -> Result<(), io::Error> {
     let mut plist = vec![0u8; udif_res.xml_length as usize];
     f.read_exact(&mut plist)?;
 
-    let parsed = parse_plist(plist).expect("Could not parse XML plist!");
+    let parsed = parse_plist(plist);
 
     println!("plist: {:#?}", parsed);
 

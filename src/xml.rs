@@ -1,6 +1,51 @@
 use super::util;
 use base64::decode;
+use std::error;
+use std::fmt;
 use xmltree;
+
+/// Ways that XML parsing might fail
+#[derive(Debug)]
+pub enum XMLError {
+    Base64(String),
+    Mish(String),
+    Partition(String),
+    XML(String),
+}
+
+impl fmt::Display for XMLError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            XMLError::Base64(ref e) => fmt::Display::fmt(e, f),
+            XMLError::Mish(ref e) => fmt::Display::fmt(e, f),
+            XMLError::Partition(ref e) => fmt::Display::fmt(e, f),
+            XMLError::XML(ref e) => fmt::Display::fmt(e, f),
+        }
+    }
+}
+
+impl error::Error for XMLError {
+    fn description(&self) -> &str {
+        match *self {
+            XMLError::Base64(ref e) => e,
+            XMLError::Mish(ref e) => e,
+            XMLError::Partition(ref e) => e,
+            XMLError::XML(ref e) => e,
+        }
+    }
+}
+
+impl From<base64::DecodeError> for XMLError {
+    fn from(e: base64::DecodeError) -> XMLError {
+        XMLError::Base64(e.to_string())
+    }
+}
+
+impl From<xmltree::ParseError> for XMLError {
+    fn from(e: xmltree::ParseError) -> XMLError {
+        XMLError::XML(e.to_string())
+    }
+}
 
 #[derive(Debug)]
 pub struct PartitionEntry {
@@ -12,7 +57,7 @@ pub struct PartitionEntry {
 }
 
 impl PartitionEntry {
-    pub fn new(element: xmltree::Element) -> Result<PartitionEntry, &'static str> {
+    pub fn new(element: xmltree::Element) -> Result<PartitionEntry, XMLError> {
         let children = &element.children;
 
         // TODO: extract strings and turn static?
@@ -34,7 +79,7 @@ impl PartitionEntry {
         })
     }
 
-    fn find_index_for(key: String, elements: &[xmltree::Element]) -> Result<String, &'static str> {
+    fn find_index_for(key: String, elements: &[xmltree::Element]) -> Result<String, XMLError> {
         let key_index = elements
             .iter()
             .position(|x| x.text.clone() == Some(key.clone()))
@@ -45,7 +90,9 @@ impl PartitionEntry {
 
         match &value.text {
             Some(text) => Ok(text.to_string()),
-            None => Err("Could not retreive value for key"),
+            None => Err(XMLError::Partition(
+                "Could not retreive value for key".to_string(),
+            )),
         }
     }
 }
@@ -102,21 +149,23 @@ pub struct MishBlock {
 }
 
 impl MishBlock {
-    pub fn new_from_base_64(encoded: String) -> Result<MishBlock, &'static str> {
+    pub fn new_from_base_64(encoded: String) -> Result<MishBlock, XMLError> {
         // trim leading and trailing whitespace, remove all tabs and newlines
         let stripped = encoded.trim().replace("\t", "").replace("\n", "");
 
-        let decoded = decode(&stripped).expect("Could not decode base64 data");
+        let decoded = decode(&stripped)?;
 
         MishBlock::new(decoded)
     }
 
-    pub fn new(buffer: Vec<u8>) -> Result<MishBlock, &'static str> {
-        let magic = util::read_be_u32(&mut &buffer[0..4]);
-        assert_eq!(format!("{:#X}", magic), MISH_MAGIC);
+    pub fn new(buffer: Vec<u8>) -> Result<MishBlock, XMLError> {
+        let signature = util::read_be_u32(&mut &buffer[0..4]);
+        if format!("{:#X}", signature) != MISH_MAGIC {
+            return Err(XMLError::Mish("Invalid mish magic bytes".to_string()));
+        }
 
         Ok(MishBlock {
-            signature: util::read_be_u32(&mut &buffer[0..4]),
+            signature,
             version: util::read_be_u32(&mut &buffer[4..8]),
             sector_number: util::read_be_u64(&mut &buffer[8..16]),
             sector_count: util::read_be_u64(&mut &buffer[16..24]),
@@ -160,7 +209,7 @@ pub struct PList {
 
 // Parse the XML plist data
 // Needs proper Error type
-pub fn parse_plist(data: Vec<u8>) -> Result<PList, xmltree::ParseError> {
+pub fn parse_plist(data: Vec<u8>) -> Result<PList, XMLError> {
     let string = String::from_utf8(data).unwrap();
 
     let xml = xmltree::Element::parse(string.as_bytes())?;
@@ -184,11 +233,14 @@ pub fn parse_plist(data: Vec<u8>) -> Result<PList, xmltree::ParseError> {
         .get_child("array")
         .expect("Could not find blk data array");
 
-    let partitions: Vec<PartitionEntry> = blk_array
+    let partitions: Result<Vec<PartitionEntry>, XMLError> = blk_array
         .children
         .iter()
-        .map(|child| PartitionEntry::new(child.clone()).unwrap())
+        .map(|child| PartitionEntry::new(child.clone()))
         .collect();
 
-    Ok(PList { partitions })
+    match partitions {
+        Ok(partitions) => Ok(PList { partitions }),
+        Err(e) => Err(e),
+    }
 }
