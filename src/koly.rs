@@ -2,59 +2,67 @@ use super::util;
 
 const KOLY_MAGIC: &str = "0x6B6F6C79";
 
+/// Represents a koly block header.
+/// Typically found in the last 512 bytes of a DMG.
+/// All fields are in big endian ordering to maintain compatiblity
+/// with older versions of macOS.
 #[derive(Debug)]
 pub struct KolyBlock {
-    /// magic - 0x6B6F6C79 "koly" in ASCII
+    /// Magic - 0x6B6F6C79 "koly" in ASCII
     pub magic: u32,
-    /// currently 4
+    /// Current version is 4
     pub version: u32,
-    /// Should always be 512
+    /// Size of this header - 512 bytes
     pub header_size: u32,
+    /// Flags
     pub flags: u32,
 
     /// where the running data fork starts (usually 0)
     pub running_data_fork_offset: u64,
-    /// usually 0
+    /// Data fork offset - usually 0, beginning of the dmg
     pub data_fork_offset: u64,
-    /// size of data fork in bytes
+    /// Size of data fork in bytes
     pub data_fork_length: u64,
-    /// resource fork offset, if any
+    /// Resource fork offset, if any
     pub source_fork_offset: u64,
-    /// resource fork length, if any
+    /// Resource fork length, if any
     pub source_fork_length: u64,
 
-    /// usually 1
+    /// Usually 1, may be 0
     pub segment_number: u32,
-    /// usually 1
+    /// Usually 1, may be 0
     pub segment_count: u32,
-    /// 128-bit number like a GUID, but not really
+    /// 128-bit GUID identifier of segment (if segment_number != 0)
     pub segment_id: u128,
 
-    /// 
+    /// See UDIFChecksum
     pub data_fork_checksum: util::UDIFChecksum,
 
-    /// start of the .plist data
+    /// Start of the .plist data
     pub xml_offset: u64,
-    /// length of the .plist data
+    /// Length of the .plist data
     pub xml_length: u64,
 
     /// 120 reserved bytes, zeroed
-    pub reserved_one: Vec<u8>, //LargeArray,
+    pub reserved_one: Vec<u8>,
 
+    /// Master Checksum, see UDIFChecksum
     pub master_checksum: util::UDIFChecksum,
 
-    /// commonly 1, we're using 2
+    /// Commonly 1
     pub image_variant: u32,
-    /// size of DMG when expanded, in sectors
+    /// Size of DMG when expanded, in sectors
     pub sector_count: u64,
 
+    /// 0
     pub reserved_two: u32,
+    /// 0
     pub reserved_three: u32,
+    /// 0
     pub reserved_four: u32,
 }
 
 impl KolyBlock {
-    // given a 512 byte long buffer of [u8] create a UDIF resource
     pub fn new(buffer: Vec<u8>) -> Result<KolyBlock, &'static str> {
 
         // sanity check that we've got 512 bytes

@@ -6,7 +6,7 @@ use structopt::StructOpt;
 extern crate base64;
 extern crate xmltree;
 
-mod koly;
+pub mod koly;
 use koly::*;
 
 mod xml;
