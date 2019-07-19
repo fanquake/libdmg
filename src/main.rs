@@ -12,7 +12,7 @@ use koly::*;
 mod xml;
 use xml::*;
 
-mod util;
+pub mod util;
 
 #[derive(StructOpt)]
 #[structopt(name = "libdmg_rust", about = "DMG inspection and creation")]
