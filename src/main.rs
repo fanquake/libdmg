@@ -14,7 +14,7 @@ use xml::*;
 
 mod util;
 
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt)]
 #[structopt(name = "libdmg_rust", about = "DMG inspection and creation")]
 enum Cli {
     #[structopt(name = "inspect")]
