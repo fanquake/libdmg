@@ -15,22 +15,22 @@ pub enum XMLError {
 
 impl fmt::Display for XMLError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            XMLError::Base64(ref e) => fmt::Display::fmt(e, f),
-            XMLError::Mish(ref e) => fmt::Display::fmt(e, f),
-            XMLError::Partition(ref e) => fmt::Display::fmt(e, f),
-            XMLError::XML(ref e) => fmt::Display::fmt(e, f),
+        match self {
+            XMLError::Base64(e) => fmt::Display::fmt(e, f),
+            XMLError::Mish(e) => fmt::Display::fmt(e, f),
+            XMLError::Partition(e) => fmt::Display::fmt(e, f),
+            XMLError::XML(e) => fmt::Display::fmt(e, f),
         }
     }
 }
 
 impl error::Error for XMLError {
     fn description(&self) -> &str {
-        match *self {
-            XMLError::Base64(ref e) => e,
-            XMLError::Mish(ref e) => e,
-            XMLError::Partition(ref e) => e,
-            XMLError::XML(ref e) => e,
+        match self {
+            XMLError::Base64(e) => e,
+            XMLError::Mish(e) => e,
+            XMLError::Partition(e) => e,
+            XMLError::XML(e) => e,
         }
     }
 }
