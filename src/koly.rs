@@ -72,7 +72,7 @@ impl KolyBlock {
         assert_eq!(format!("{:#X}", magic), KOLY_MAGIC);
 
         Ok(KolyBlock {
-            magic: util::read_be_u32(&mut &buffer[0..4]),
+            magic,
             version: util::read_be_u32(&mut &buffer[4..8]),
             header_size: util::read_be_u32(&mut &buffer[8..12]),
             flags: util::read_be_u32(&mut &buffer[12..16]),
