@@ -130,17 +130,28 @@ impl BlkxChunkEntry {
 
 const MISH_MAGIC: &str = "0x6D697368";
 
+/// Decoded from a base64 string
+/// All fields are in big endian ordering to maintain compatiblity
+/// with older versions of macOS.
 #[derive(Debug)]
 pub struct MishBlock {
+    /// Magic - "mish" in ASCII
     signature: u32,
+    /// Current version is 1
     version: u32,
+    /// Starting disk sector in this blkx descriptor
     sector_number: u64,
+    /// Number of disk sectors in this blkx descriptor
     sector_count: u64,
 
+    /// Start of raw data
     data_offset: u64,
+    /// Size of the buffer in sectors needed to decompress
     buffers_needed: u32,
+    /// Number of block descriptors
     block_descriptors: u32,
 
+    /// Zeroed data
     reserved_1: u32,
     reserved_2: u32,
     reserved_3: u32,
@@ -148,10 +159,13 @@ pub struct MishBlock {
     reserved_5: u32,
     reserved_6: u32,
 
+    /// UDIF Checksum - see util:UDIFChecksum
     checksum: util::UDIFChecksum,
 
+    /// Number of entries in the blkx run table afterwards
     number_block_chunks: u32,
-    block_entries: Vec<BlkxChunkEntry>, // [ num_block_chunks * blkxChunkEntry (40 bytes each)]
+    /// [ num_block_chunks * blkxChunkEntry (40 bytes each)]
+    block_entries: Vec<BlkxChunkEntry>,
 }
 
 impl MishBlock {
