@@ -101,11 +101,17 @@ const BLKX_CHUNK_ENTRY_SIZE: usize = 40;
 
 #[derive(Debug)]
 pub struct BlkxChunkEntry {
-    entry_type: u32, // compression type used
+    /// Compression type used or entry type
+    entry_type: u32,
+    /// "+beg" or "+end" if entry_type is comment (0x7FFFFFFE). Else reserved
     comment: u32,
+    /// Start sector of this chunk
     sector_number: u64,
+    /// Number of sectors in this chunk
     sector_count: u64,
+    /// Start of chunk in data fork
     compressed_offset: u64,
+    /// Count of bytes of chunk, in data fork
     compressed_length: u64,
 }
 
@@ -150,7 +156,7 @@ pub struct MishBlock {
 
 impl MishBlock {
     pub fn new_from_base_64(encoded: String) -> Result<MishBlock, XMLError> {
-        // trim leading and trailing whitespace, remove all tabs and newlines
+        // trim leading and trailing whitespace, tabs and newlines
         let stripped = encoded.trim().replace("\t", "").replace("\n", "");
 
         let decoded = decode(&stripped)?;
@@ -200,15 +206,12 @@ impl MishBlock {
     }
 }
 
-// Can just list partitions for now
-// Needs Error handling
 #[derive(Debug)]
 pub struct PList {
     partitions: Vec<PartitionEntry>,
 }
 
 // Parse the XML plist data
-// Needs proper Error type
 pub fn parse_plist(data: Vec<u8>) -> Result<PList, XMLError> {
     let string = String::from_utf8(data).unwrap();
 
