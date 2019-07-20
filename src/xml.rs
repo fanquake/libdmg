@@ -47,13 +47,19 @@ impl From<xmltree::ParseError> for XMLError {
     }
 }
 
+/// Describes a GPT partition
 #[derive(Debug)]
 pub struct PartitionEntry {
-    attributes: String, // turn this into hex or some int?
-    cf_name: String,
-    data: MishBlock, // base64 encoded string, decode into mish block
-    id: i32,         // this can be -1...n
-    name: String,    // always seems to be the same as cf_name
+    /// Some attributes as a hex string. Generally 0x0050 ?
+    pub attributes: String,
+    /// Column family name?
+    pub cf_name: String,
+    /// Base64 encoded string, decoded into a mish block
+    pub data: MishBlock,
+    /// Id in the range -1...number of partition entries
+    pub id: i32,
+    /// Always seems to be the same as cf_name
+    pub name: String,
 }
 
 impl PartitionEntry {
@@ -102,17 +108,17 @@ const BLKX_CHUNK_ENTRY_SIZE: usize = 40;
 #[derive(Debug)]
 pub struct BlkxChunkEntry {
     /// Compression type used or entry type
-    entry_type: u32,
+    pub entry_type: u32,
     /// "+beg" or "+end" if entry_type is comment (0x7FFFFFFE). Else reserved
-    comment: u32,
+    pub comment: u32,
     /// Start sector of this chunk
-    sector_number: u64,
+    pub sector_number: u64,
     /// Number of sectors in this chunk
-    sector_count: u64,
+    pub sector_count: u64,
     /// Start of chunk in data fork
-    compressed_offset: u64,
+    pub compressed_offset: u64,
     /// Count of bytes of chunk, in data fork
-    compressed_length: u64,
+    pub compressed_length: u64,
 }
 
 impl BlkxChunkEntry {
@@ -136,36 +142,36 @@ const MISH_MAGIC: &str = "0x6D697368";
 #[derive(Debug)]
 pub struct MishBlock {
     /// Magic - "mish" in ASCII
-    signature: u32,
+    pub signature: u32,
     /// Current version is 1
-    version: u32,
+    pub version: u32,
     /// Starting disk sector in this blkx descriptor
-    sector_number: u64,
+    pub sector_number: u64,
     /// Number of disk sectors in this blkx descriptor
-    sector_count: u64,
+    pub sector_count: u64,
 
     /// Start of raw data
-    data_offset: u64,
+    pub data_offset: u64,
     /// Size of the buffer in sectors needed to decompress
-    buffers_needed: u32,
+    pub buffers_needed: u32,
     /// Number of block descriptors
-    block_descriptors: u32,
+    pub block_descriptors: u32,
 
     /// Zeroed data
-    reserved_1: u32,
-    reserved_2: u32,
-    reserved_3: u32,
-    reserved_4: u32,
-    reserved_5: u32,
-    reserved_6: u32,
+    pub reserved_1: u32,
+    pub reserved_2: u32,
+    pub reserved_3: u32,
+    pub reserved_4: u32,
+    pub reserved_5: u32,
+    pub reserved_6: u32,
 
     /// UDIF Checksum - see util:UDIFChecksum
-    checksum: util::UDIFChecksum,
+    pub checksum: util::UDIFChecksum,
 
     /// Number of entries in the blkx run table afterwards
-    number_block_chunks: u32,
+    pub number_block_chunks: u32,
     /// [ num_block_chunks * blkxChunkEntry (40 bytes each)]
-    block_entries: Vec<BlkxChunkEntry>,
+    pub block_entries: Vec<BlkxChunkEntry>,
 }
 
 impl MishBlock {
@@ -222,7 +228,8 @@ impl MishBlock {
 
 #[derive(Debug)]
 pub struct PList {
-    partitions: Vec<PartitionEntry>,
+    /// Vector of GPT partitions
+    pub partitions: Vec<PartitionEntry>,
 }
 
 // Parse the XML plist data
