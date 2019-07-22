@@ -8,6 +8,7 @@ use xmltree;
 #[derive(Debug)]
 pub enum XMLError {
     Base64(String),
+    Blxx(String),
     Mish(String),
     Partition(String),
     XML(String),
@@ -17,6 +18,7 @@ impl fmt::Display for XMLError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             XMLError::Base64(e) => fmt::Display::fmt(e, f),
+            XMLError::Blxx(e) => fmt::Display::fmt(e, f),
             XMLError::Mish(e) => fmt::Display::fmt(e, f),
             XMLError::Partition(e) => fmt::Display::fmt(e, f),
             XMLError::XML(e) => fmt::Display::fmt(e, f),
@@ -28,6 +30,7 @@ impl error::Error for XMLError {
     fn description(&self) -> &str {
         match self {
             XMLError::Base64(e) => e,
+            XMLError::Blxx(e) => e,
             XMLError::Mish(e) => e,
             XMLError::Partition(e) => e,
             XMLError::XML(e) => e,
@@ -105,10 +108,50 @@ impl PartitionEntry {
 
 const BLKX_CHUNK_ENTRY_SIZE: usize = 40;
 
+/// DMG blxx types
+#[derive(Debug)]
+pub enum DmgBlxx {
+    /// Zero fill - 0x00000000
+    ZeroFill,
+    /// RAW or UNLL compression (uncompressed) - 0x00000001
+    RawOrNullCompression,
+    /// Ignored/unknown - 0x00000002
+    IgnoredOrUnknown,
+    /// Apple data compression - 0x80000004
+    AppleCompression,
+    /// zLib data compression - 0x80000005
+    ZLibCompression,
+    /// bz2lib data compression - 0x80000006
+    Bz2Compression,
+    /// No blocks - Comment: +beg and +end - 0x7FFFFFFE
+    Comment,
+    /// No blocks - Identifies the last blxx entry - 0xFFFFFFFF
+    LastEntry,
+}
+
+impl DmgBlxx {
+    /// Convert big endian bytes into a DMG blxx type
+    pub fn from_u32(be_bytes: &mut &[u8]) -> Option<DmgBlxx> {
+        let uint = util::read_be_u32(be_bytes);
+
+        match uint {
+            0 => Some(DmgBlxx::ZeroFill),
+            1 => Some(DmgBlxx::RawOrNullCompression),
+            2 => Some(DmgBlxx::IgnoredOrUnknown),
+            2_147_483_652 => Some(DmgBlxx::AppleCompression),
+            2_147_483_653 => Some(DmgBlxx::ZLibCompression),
+            2_147_483_654 => Some(DmgBlxx::Bz2Compression),
+            4_294_967_294 => Some(DmgBlxx::Comment),
+            4_294_967_295 => Some(DmgBlxx::LastEntry),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct BlkxChunkEntry {
     /// Compression type used or entry type
-    pub entry_type: u32,
+    pub entry_type: DmgBlxx,
     /// "+beg" or "+end" if entry_type is comment (0x7FFFFFFE). Else reserved
     pub comment: u32,
     /// Start sector of this chunk
@@ -122,15 +165,22 @@ pub struct BlkxChunkEntry {
 }
 
 impl BlkxChunkEntry {
-    pub fn new(buffer: &[u8]) -> BlkxChunkEntry {
-        BlkxChunkEntry {
-            entry_type: util::read_be_u32(&mut &buffer[0..4]),
+    pub fn new(buffer: &[u8]) -> Result<BlkxChunkEntry, XMLError> {
+        let entry = DmgBlxx::from_u32(&mut &buffer[0..4]);
+
+        let entry_type = match entry {
+            Some(entry) => entry,
+            None => return Err(XMLError::Blxx("Could not identify blxx type".to_string())),
+        };
+
+        Ok(BlkxChunkEntry {
+            entry_type,
             comment: util::read_be_u32(&mut &buffer[4..8]),
             sector_number: util::read_be_u64(&mut &buffer[8..16]),
             sector_count: util::read_be_u64(&mut &buffer[16..24]),
             compressed_offset: util::read_be_u64(&mut &buffer[24..32]),
             compressed_length: util::read_be_u64(&mut &buffer[32..40]),
-        }
+        })
     }
 }
 
@@ -186,9 +236,17 @@ impl MishBlock {
 
     pub fn new(buffer: Vec<u8>) -> Result<MishBlock, XMLError> {
         let signature = util::read_be_u32(&mut &buffer[0..4]);
+
         if format!("{:#X}", signature) != MISH_MAGIC {
             return Err(XMLError::Mish("Invalid mish magic bytes".to_string()));
         }
+
+        let build = MishBlock::build_block_entries(&buffer[204..]);
+
+        let block_entries = match build {
+            Ok(entries) => entries,
+            Err(_e) => return Err(XMLError::Mish("Could not build block entries".to_string())),
+        };
 
         Ok(MishBlock {
             signature,
@@ -214,11 +272,11 @@ impl MishBlock {
             },
 
             number_block_chunks: util::read_be_u32(&mut &buffer[200..204]),
-            block_entries: MishBlock::build_block_entries(&buffer[204..]),
+            block_entries,
         })
     }
 
-    fn build_block_entries(buffer: &[u8]) -> Vec<BlkxChunkEntry> {
+    fn build_block_entries(buffer: &[u8]) -> Result<Vec<BlkxChunkEntry>, XMLError> {
         buffer
             .chunks_exact(BLKX_CHUNK_ENTRY_SIZE)
             .map(|c| BlkxChunkEntry::new(c))
