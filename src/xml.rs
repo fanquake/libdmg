@@ -82,7 +82,7 @@ impl PartitionEntry {
         Ok(PartitionEntry {
             attributes,
             cf_name,
-            data: MishBlock::new_from_base_64(data)?,
+            data: MishBlock::from_base64(data)?,
             id,
             name,
         })
@@ -225,7 +225,7 @@ pub struct MishBlock {
 }
 
 impl MishBlock {
-    pub fn new_from_base_64(encoded: String) -> Result<MishBlock, XMLError> {
+    pub fn from_base64(encoded: String) -> Result<MishBlock, XMLError> {
         // trim leading and trailing whitespace, tabs and newlines
         let stripped = encoded.trim().replace("\t", "").replace("\n", "");
 
