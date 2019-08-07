@@ -12,6 +12,21 @@ pub struct UDIFChecksum {
     pub data: Vec<u8>,
 }
 
+impl UDIFChecksum {
+    pub fn to_be_bytes(self) -> Vec<u8> {
+        let mut buffer: Vec<u8> = Vec::new();
+
+        let mut fork_type = self.fork_type.to_be_bytes().to_vec();
+        buffer.append(&mut fork_type);
+        let mut size = self.size.to_be_bytes().to_vec();
+        buffer.append(&mut size);
+        let mut data = self.data;
+        buffer.append(&mut data);
+
+        buffer
+    }
+}
+
 /// Create a u32 from big-endian ordered bytes
 pub fn read_be_u32(input: &mut &[u8]) -> u32 {
     let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());

@@ -113,4 +113,73 @@ impl KolyBlock {
             reserved_four: util::read_be_u32(&mut &buffer[508..512]),
         })
     }
+
+    pub fn to_be_bytes(self) -> Vec<u8> {
+        let mut buffer: Vec<u8> = Vec::new();
+
+        let mut magic = self.magic.to_be_bytes().to_vec();
+        buffer.append(&mut magic);
+        let mut version = self.version.to_be_bytes().to_vec();
+        buffer.append(&mut version);
+
+        let mut header_size = self.header_size.to_be_bytes().to_vec();
+        buffer.append(&mut header_size);
+
+        let mut flags = self.flags.to_be_bytes().to_vec();
+        buffer.append(&mut flags);
+
+        let mut running_data_fork_offset = self.running_data_fork_offset.to_be_bytes().to_vec();
+        buffer.append(&mut running_data_fork_offset);
+
+        let mut data_fork_offset = self.data_fork_offset.to_be_bytes().to_vec();
+        buffer.append(&mut data_fork_offset);
+
+        let mut data_fork_length = self.data_fork_length.to_be_bytes().to_vec();
+        buffer.append(&mut data_fork_length);
+
+        let mut source_fork_offset = self.source_fork_offset.to_be_bytes().to_vec();
+        buffer.append(&mut source_fork_offset);
+
+        let mut source_fork_length = self.source_fork_length.to_be_bytes().to_vec();
+        buffer.append(&mut source_fork_length);
+
+        let mut segment_number = self.segment_number.to_be_bytes().to_vec();
+        buffer.append(&mut segment_number);
+
+        let mut segment_count = self.segment_count.to_be_bytes().to_vec();
+        buffer.append(&mut segment_count);
+
+        let mut segment_id = self.segment_id.to_be_bytes().to_vec();
+        buffer.append(&mut segment_id);
+
+        buffer.append(&mut self.data_fork_checksum.to_be_bytes());
+
+        let mut xml_offset = self.xml_offset.to_be_bytes().to_vec();
+        buffer.append(&mut xml_offset);
+
+        let mut xml_length = self.xml_length.to_be_bytes().to_vec();
+        buffer.append(&mut xml_length);
+
+        // TODO - zeroed bytes don't care about BE?
+        buffer.append(&mut self.reserved_one.clone());
+
+        buffer.append(&mut self.master_checksum.to_be_bytes());
+
+        let mut image_variant = self.image_variant.to_be_bytes().to_vec();
+        buffer.append(&mut image_variant);
+
+        let mut sector_count = self.sector_count.to_be_bytes().to_vec();
+        buffer.append(&mut sector_count);
+
+        let mut reserved_two = self.reserved_two.to_be_bytes().to_vec();
+        buffer.append(&mut reserved_two);
+
+        let mut reserved_three = self.reserved_three.to_be_bytes().to_vec();
+        buffer.append(&mut reserved_three);
+
+        let mut reserved_four = self.reserved_four.to_be_bytes().to_vec();
+        buffer.append(&mut reserved_four);
+
+        buffer
+    }
 }

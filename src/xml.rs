@@ -1,8 +1,9 @@
-use super::util;
-use base64::decode;
+use std::io::Read;
 use std::error;
 use std::fmt;
 use xmltree;
+
+use crate::partition::PartitionEntry;
 
 /// Ways that XML parsing might fail
 #[derive(Debug)]
@@ -50,279 +51,159 @@ impl From<xmltree::ParseError> for XMLError {
     }
 }
 
-/// Describes a GPT partition
-#[derive(Debug)]
-pub struct PartitionEntry {
-    /// Some attributes as a hex string. Generally 0x0050 ?
-    pub attributes: String,
-    /// Column family name?
-    pub cf_name: String,
-    /// Base64 encoded string, decoded into a mish block
-    pub data: MishBlock,
-    /// Id in the range -1...number of partition entries
-    pub id: i32,
-    /// Always seems to be the same as cf_name
-    pub name: String,
-}
-
-impl PartitionEntry {
-    pub fn new(element: &xmltree::Element) -> Result<PartitionEntry, XMLError> {
-        let children = &element.children;
-
-        // TODO: extract strings and turn static?
-        let attributes = PartitionEntry::find_index_for(String::from("Attributes"), &children)?;
-        let cf_name = PartitionEntry::find_index_for(String::from("CFName"), &children)?;
-        let data = PartitionEntry::find_index_for(String::from("Data"), &children)?;
-        // TODO: yuck?
-        let id: i32 = PartitionEntry::find_index_for(String::from("ID"), &children)?
-            .parse()
-            .unwrap();
-        let name = PartitionEntry::find_index_for(String::from("Name"), &children)?;
-
-        Ok(PartitionEntry {
-            attributes,
-            cf_name,
-            data: MishBlock::from_base64(data)?,
-            id,
-            name,
-        })
-    }
-
-    fn find_index_for(key: String, elements: &[xmltree::Element]) -> Result<String, XMLError> {
-        let key_index = elements
-            .iter()
-            .position(|x| x.text == Some(key.clone()))
-            .unwrap();
-
-        // This assumes that the XML elements are always ordered correctly
-        let value = &elements[key_index + 1];
-
-        match &value.text {
-            Some(text) => Ok(text.to_string()),
-            None => Err(XMLError::Partition(
-                "Could not retreive value for key".to_string(),
-            )),
-        }
-    }
-}
-
-const BLKX_CHUNK_ENTRY_SIZE: usize = 40;
-
-/// DMG blxx types
-#[derive(Debug)]
-pub enum DmgBlxx {
-    /// Zero fill - 0x00000000
-    ZeroFill,
-    /// RAW or UNLL compression (uncompressed) - 0x00000001
-    RawOrNullCompression,
-    /// Ignored/unknown - 0x00000002
-    IgnoredOrUnknown,
-    /// Apple data compression - 0x80000004
-    AppleCompression,
-    /// zLib data compression - 0x80000005
-    ZLibCompression,
-    /// bz2lib data compression - 0x80000006
-    Bz2Compression,
-    /// No blocks - Comment: +beg and +end - 0x7FFFFFFE
-    Comment,
-    /// No blocks - Identifies the last blxx entry - 0xFFFFFFFF
-    LastEntry,
-}
-
-impl DmgBlxx {
-    /// Convert big endian bytes into a DMG blxx type
-    pub fn from_u32(be_bytes: &mut &[u8]) -> Option<DmgBlxx> {
-        let uint = util::read_be_u32(be_bytes);
-
-        match uint {
-            0 => Some(DmgBlxx::ZeroFill),
-            1 => Some(DmgBlxx::RawOrNullCompression),
-            2 => Some(DmgBlxx::IgnoredOrUnknown),
-            2_147_483_652 => Some(DmgBlxx::AppleCompression),
-            2_147_483_653 => Some(DmgBlxx::ZLibCompression),
-            2_147_483_654 => Some(DmgBlxx::Bz2Compression),
-            4_294_967_294 => Some(DmgBlxx::Comment),
-            4_294_967_295 => Some(DmgBlxx::LastEntry),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct BlkxChunkEntry {
-    /// Compression type used or entry type
-    pub entry_type: DmgBlxx,
-    /// "+beg" or "+end" if entry_type is comment (0x7FFFFFFE). Else reserved
-    pub comment: u32,
-    /// Start sector of this chunk
-    pub sector_number: u64,
-    /// Number of sectors in this chunk
-    pub sector_count: u64,
-    /// Start of chunk in data fork
-    pub compressed_offset: u64,
-    /// Count of bytes of chunk, in data fork
-    pub compressed_length: u64,
-}
-
-impl BlkxChunkEntry {
-    pub fn new(buffer: &[u8]) -> Result<BlkxChunkEntry, XMLError> {
-        let entry = DmgBlxx::from_u32(&mut &buffer[0..4]);
-
-        let entry_type = match entry {
-            Some(entry) => entry,
-            None => return Err(XMLError::Blxx("Could not identify blxx type".to_string())),
-        };
-
-        Ok(BlkxChunkEntry {
-            entry_type,
-            comment: util::read_be_u32(&mut &buffer[4..8]),
-            sector_number: util::read_be_u64(&mut &buffer[8..16]),
-            sector_count: util::read_be_u64(&mut &buffer[16..24]),
-            compressed_offset: util::read_be_u64(&mut &buffer[24..32]),
-            compressed_length: util::read_be_u64(&mut &buffer[32..40]),
-        })
-    }
-}
-
-const MISH_MAGIC: &str = "0x6D697368";
-
-/// Decoded from a base64 string
-/// All fields are in big endian ordering to maintain compatiblity
-/// with older versions of macOS.
-#[derive(Debug)]
-pub struct MishBlock {
-    /// Magic - "mish" in ASCII
-    pub signature: u32,
-    /// Current version is 1
-    pub version: u32,
-    /// Starting disk sector in this blkx descriptor
-    pub sector_number: u64,
-    /// Number of disk sectors in this blkx descriptor
-    pub sector_count: u64,
-
-    /// Start of raw data
-    pub data_offset: u64,
-    /// Size of the buffer in sectors needed to decompress
-    pub buffers_needed: u32,
-    /// Number of block descriptors
-    pub block_descriptors: u32,
-
-    /// Zeroed data
-    pub reserved_1: u32,
-    pub reserved_2: u32,
-    pub reserved_3: u32,
-    pub reserved_4: u32,
-    pub reserved_5: u32,
-    pub reserved_6: u32,
-
-    /// UDIF Checksum - see util:UDIFChecksum
-    pub checksum: util::UDIFChecksum,
-
-    /// Number of entries in the blkx run table afterwards
-    pub number_block_chunks: u32,
-    /// [ num_block_chunks * blkxChunkEntry (40 bytes each)]
-    pub block_entries: Vec<BlkxChunkEntry>,
-}
-
-impl MishBlock {
-    pub fn from_base64(encoded: String) -> Result<MishBlock, XMLError> {
-        // trim leading and trailing whitespace, tabs and newlines
-        let stripped = encoded.trim().replace("\t", "").replace("\n", "");
-
-        let decoded = decode(&stripped)?;
-
-        MishBlock::new(decoded)
-    }
-
-    pub fn new(buffer: Vec<u8>) -> Result<MishBlock, XMLError> {
-        let signature = util::read_be_u32(&mut &buffer[0..4]);
-
-        if format!("{:#X}", signature) != MISH_MAGIC {
-            return Err(XMLError::Mish("Invalid mish magic bytes".to_string()));
-        }
-
-        let build = MishBlock::build_block_entries(&buffer[204..]);
-
-        let block_entries = match build {
-            Ok(entries) => entries,
-            Err(_e) => return Err(XMLError::Mish("Could not build block entries".to_string())),
-        };
-
-        Ok(MishBlock {
-            signature,
-            version: util::read_be_u32(&mut &buffer[4..8]),
-            sector_number: util::read_be_u64(&mut &buffer[8..16]),
-            sector_count: util::read_be_u64(&mut &buffer[16..24]),
-
-            data_offset: util::read_be_u64(&mut &buffer[24..32]),
-            buffers_needed: util::read_be_u32(&mut &buffer[32..36]),
-            block_descriptors: util::read_be_u32(&mut &buffer[36..40]),
-
-            reserved_1: util::read_be_u32(&mut &buffer[40..44]),
-            reserved_2: util::read_be_u32(&mut &buffer[44..48]),
-            reserved_3: util::read_be_u32(&mut &buffer[48..52]),
-            reserved_4: util::read_be_u32(&mut &buffer[52..56]),
-            reserved_5: util::read_be_u32(&mut &buffer[56..60]),
-            reserved_6: util::read_be_u32(&mut &buffer[60..64]),
-
-            checksum: util::UDIFChecksum {
-                fork_type: util::read_be_u32(&mut &buffer[64..68]),
-                size: util::read_be_u32(&mut &buffer[68..72]),
-                data: buffer[72..200].to_vec(),
-            },
-
-            number_block_chunks: util::read_be_u32(&mut &buffer[200..204]),
-            block_entries,
-        })
-    }
-
-    fn build_block_entries(buffer: &[u8]) -> Result<Vec<BlkxChunkEntry>, XMLError> {
-        buffer
-            .chunks_exact(BLKX_CHUNK_ENTRY_SIZE)
-            .map(|c| BlkxChunkEntry::new(c))
-            .collect()
-    }
-}
-
 #[derive(Debug)]
 pub struct PList {
     /// Vector of GPT partitions
     pub partitions: Vec<PartitionEntry>,
 }
 
-// Parse the XML plist data
-pub fn parse_plist(data: Vec<u8>) -> Result<PList, XMLError> {
-    let string = String::from_utf8(data).unwrap();
+impl PList {
 
-    let xml = xmltree::Element::parse(string.as_bytes())?;
+    pub fn from_bytes(data: Vec<u8>) -> Result<PList, XMLError> {
+        let string = String::from_utf8(data).unwrap();
+        //println!("xml: {:#?}", string.clone());
 
-    let outer_dict = xml.get_child("dict").unwrap();
+        let xml = xmltree::Element::parse(string.as_bytes())?;
 
-    // check for the resource-fork key
-    let resource_fork = outer_dict
-        .get_child("key")
-        .expect("Could not find resource-fork");
-    let text = resource_fork
-        .text
-        .clone()
-        .expect("Malformed resource-fork text");
-    assert_eq!(text, "resource-fork");
+        let outer_dict = xml.get_child("dict").unwrap();
 
-    // get the array that contains the blk data entries
-    let blk_array = outer_dict
-        .get_child("dict")
-        .unwrap()
-        .get_child("array")
-        .expect("Could not find blk data array");
+        // check for the resource-fork key
+        let resource_fork = outer_dict
+            .get_child("key")
+            .expect("Could not find resource-fork");
+        let text = resource_fork
+            .text
+            .clone()
+            .expect("Malformed resource-fork text");
+        assert_eq!(text, "resource-fork");
 
-    let partitions: Result<Vec<PartitionEntry>, XMLError> = blk_array
-        .children
-        .iter()
-        .map(|child| PartitionEntry::new(child))
-        .collect();
+        //println!("out_dict: {:#?}", outer_dict);
 
-    match partitions {
-        Ok(partitions) => Ok(PList { partitions }),
-        Err(e) => Err(e),
+        // get the array that contains the blk data entries
+        let blk_array = outer_dict
+            .get_child("dict")
+            .unwrap()
+            .get_child("array")
+            .expect("Could not find blk data array");
+
+    //println!("blk array: {:#?}", blk_array);
+
+    //    let plst_array = outer_dict
+    //         .get_child("dict")
+
+        let partitions: Result<Vec<PartitionEntry>, XMLError> = blk_array
+            .children
+            .iter()
+            .map(|child| PartitionEntry::new(child))
+            .collect();
+
+        match partitions {
+            Ok(partitions) => Ok(PList { partitions }),
+            Err(e) => Err(e),
+        }
+    }
+
+    // Create an empty XML structure that looks something
+    // like the plist data we want to end up with
+    fn empty() -> xmltree::Element {
+
+        // This may also need Csum and Nsiz keys,
+        // but they are not present in the hdiutil generated DMG
+        let base_xml: &'static str = r##"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>resource-fork</key>
+<dict>
+<key>blkx</key><array></array>
+<key>plst</key><array></array>
+</dict>
+</dict></plist>
+"##;
+
+        xmltree::Element::parse(base_xml.as_bytes()).unwrap()
+    }
+
+    // Should not be affected by BE ordering. All data being passed in 
+    // has already been converted to BE bytes
+    pub fn build(mish: String) -> Vec<u8> {
+        let mut base = PList::empty();
+        let partition = PList::partition(mish, 0);
+
+        // insert our new partition
+        let blk_array = base.get_mut_child("dict")
+                            .unwrap().get_mut_child("dict")
+                            .unwrap().get_mut_child("array").unwrap();
+        blk_array.children.push(partition);
+
+        println!("Built XML: {:#?}", base);
+
+        base.write(std::fs::File::create("plist.xml").unwrap()).unwrap();
+        let mut contents = Vec::new();
+        let mut ret = std::fs::File::open("plist.xml").unwrap();
+        ret.read_to_end(&mut contents).unwrap();
+
+        contents
+    }
+
+    fn partition(mish: String, partition_id: u32) -> xmltree::Element {
+        // partition dictionary
+        let mut part = xmltree::Element::new("dict");
+
+        // Attributes
+        let attr = PList::component(ElementType::KeyElm, String::from("Attributes"));
+        part.children.push(attr);
+        let attr_value = PList::component(ElementType::StringElm, String::from("0x0050"));
+        part.children.push(attr_value);
+
+        // Data
+        let data = PList::component(ElementType::KeyElm, String::from("Data"));
+        part.children.push(data);
+        let data_val = PList::component(ElementType::DataElm, mish);
+        part.children.push(data_val);
+        // ID
+        let id = PList::component(ElementType::KeyElm, String::from("ID"));
+        part.children.push(id);
+        let id_val = PList::component(ElementType::StringElm, partition_id.to_string());
+        part.children.push(id_val);
+        // Name
+        let name = PList::component(ElementType::KeyElm, String::from("Name"));
+        part.children.push(name);
+        let name_val = PList::component(ElementType::StringElm, String::from("whole disk (unknown partition : 0)"));
+        part.children.push(name_val);
+        // CFName
+        let cf = PList::component(ElementType::KeyElm, String::from("CFName"));
+        part.children.push(cf);
+        let cf_val = PList::component(ElementType::StringElm, String::from("whole disk (unknown partition : 0)"));
+        part.children.push(cf_val);
+
+        part
+    }
+
+    fn component(element_type: ElementType, text: String) -> xmltree::Element {
+        let mut c = xmltree::Element::new(element_type.to_str());
+        c.text = Some(text);
+        c
+    }
+}
+
+pub enum ElementType {
+    ArrayElm,
+    DictElm,
+    DataElm,
+    KeyElm,
+    StringElm,
+}
+
+impl ElementType {
+    pub fn to_str(self) -> &'static str {
+        match self {
+            ElementType::ArrayElm => "array",
+            ElementType::DataElm => "data",
+            ElementType::DictElm => "dict",
+            ElementType::KeyElm => "key",
+            ElementType::StringElm => "string",
+        }
     }
 }

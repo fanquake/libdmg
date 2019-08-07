@@ -14,3 +14,4 @@ keywords = ["DMG"]
 base64 = "0.10.1"
 structopt = "0.2"
 xmltree = "0.8"
+libflate = "0.1"
