@@ -1,6 +1,6 @@
-# libdmg_rust
+# libdmg
 
-[![Build Status](https://travis-ci.org/fanquake/libdmg_rust.svg?branch=master)](https://travis-ci.org/fanquake/libdmg_rust)
+[![Build Status](https://travis-ci.org/fanquake/libdmg.svg?branch=master)](https://travis-ci.org/fanquake/libdmg)
 
 This is a port of some of the functionality of [planetbeing/libdmg-hfsplus](https://github.com/planetbeing/libdmg-hfsplus).
 
@@ -34,7 +34,7 @@ hdiutil attach my.dmg
 # Build binary
 carog build
 
-# Inspect with libdmg_rust
+# Inspect dmg
 cargo run inspect my.dmg
 ...
 Inspecting: "my.dmg"

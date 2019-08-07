@@ -20,7 +20,7 @@ use koly::*;
 use xml::*;
 
 #[derive(StructOpt)]
-#[structopt(name = "libdmg_rust", about = "DMG inspection and creation")]
+#[structopt(name = "libdmg", about = "DMG inspection and creation")]
 enum Cli {
     #[structopt(name = "inspect")]
     /// Inspect a DMG file and print metadata

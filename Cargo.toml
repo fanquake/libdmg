@@ -1,11 +1,11 @@
 [package]
-name = "libdmg_rust"
+name = "libdmg"
 version = "0.1.0"
 authors = ["Michael Ford <fanquake@gmail.com>"]
 edition = "2018"
-homepage = "https://github.com/fanquake/libdmg_rust"
+homepage = "https://github.com/fanquake/libdmg"
 readme = "README.md"
-repository = "https://github.com/fanquake/libdmg_rust"
+repository = "https://github.com/fanquake/libdmg"
 categories = ["command-line-utilities"]
 description = "Inspect and create DMG files."
 keywords = ["DMG"]
